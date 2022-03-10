@@ -7,6 +7,8 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.image import MIMEImage
 from email.mime.application import MIMEApplication
+from email.mime.base import MIMEBase
+from email import encoders
 
 def send_email():
     assert len(argv) == 2, "Incorrect number of arguments"
@@ -24,7 +26,7 @@ def send_email():
     server.starttls()
 
     try:
-        with open(template_path) as file:
+        with open(template_path, "r", encoding="utf-8") as file:
             template = file.read()
     except IOError:
         return "error opening an html template"
@@ -33,13 +35,16 @@ def send_email():
         server.login(sender_email, sender_password)
         msg = MIMEMultipart()
         msg["From"] = sender_email
-        msg["Subject"] = "Virus"
+        msg["Subject"] = "Важное Обращение"
         msg.attach(MIMEText(template, "html"))
 
         for file in os.listdir(attachments_path):
             filename = os.path.basename(file)
             ftype, encoding = mimetypes.guess_type(file)
-            file_type, subtype = ftype.split("/")
+            try:
+                file_type, subtype = ftype.split("/")
+            except:
+                file_type = ftype
 
             if file_type == "text":
                 with open(f"{attachments_path}/{file}") as f:
@@ -51,7 +56,10 @@ def send_email():
                 with open(f"{attachments_path}/{file}", "rb") as f:
                     file = MIMEApplication(f.read(), subtype)
             else:
-                return "Unknown type"
+                with open(f"{attachments_path}/{file}", "rb") as f:
+                    file = MIMEBase(file_type, subtype)
+                    file.set_payload(f.read())
+                    encoders.encode_base64(file)
 
             file.add_header('content-disposition', 'attachment', filename=filename)
             msg.attach(file)
